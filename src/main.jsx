@@ -8,6 +8,8 @@ const ACCOUNT_STORAGE_KEY = 'cat-purrsonality-account-v1';
 const ADMIN_CONTENT_KEY = 'cat-purrsonality-admin-content-v1';
 const ADMIN_SESSION_KEY = 'cat-purrsonality-admin-session-v1';
 const APPLE_PRODUCT_ID = 'com.purrsonality.full_report';
+const ADMIN_EMAIL = 'kassab.team@icloud.com';
+const ADMIN_PASSCODE = 'catskittens-admin';
 
 const categories = [
   'Confidence',
@@ -493,13 +495,14 @@ const concernSuggestions = [
 ];
 
 const defaultAdminSettings = {
-  reportName: 'Full Cat Report',
-  reportPrice: '$9.99',
-  paymentProvider: 'Apple prototype',
+  reportName: 'Cat Purrsonality Deposit',
+  reportPrice: '$25.00',
+  paymentProvider: 'Stripe or Apple',
   appleProductId: APPLE_PRODUCT_ID,
   stripeMode: 'Not connected yet',
   stripePublishableKey: '',
   stripePriceId: '',
+  stripePaymentLink: '',
   successUrl: 'https://cat-purrsonality.vercel.app',
   cancelUrl: 'https://cat-purrsonality.vercel.app',
   requireLogin: true,
@@ -692,6 +695,7 @@ function App() {
   const activeConcernSuggestions = adminContent.concernSuggestions;
   const activeProfileFields = adminContent.profileFields;
   const activeSettings = adminContent.settings;
+  const isAdminAccount = account?.email?.trim().toLowerCase() === ADMIN_EMAIL;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, answers, step }));
@@ -845,11 +849,11 @@ function App() {
               <button className="ghost-button" type="button" onClick={openApp}>
                 Back to app
               </button>
-            ) : (
+            ) : isAdminAccount ? (
               <button className="ghost-button" type="button" onClick={openAdmin}>
                 Admin
               </button>
-            )}
+            ) : null}
             {account && view !== 'admin' ? (
               <>
                 <button className="ghost-button" type="button" onClick={signOut}>
@@ -978,29 +982,44 @@ function AuthCard({ onSubmit }) {
 }
 
 function Paywall({ onPurchase, onRestore, settings }) {
+  const [notice, setNotice] = useState('');
+
+  function openStripeCheckout() {
+    if (!settings.stripePaymentLink?.trim()) {
+      setNotice('Stripe is ready for a Payment Link. Add it in Admin > Payments and features.');
+      return;
+    }
+
+    window.location.href = settings.stripePaymentLink.trim();
+  }
+
   return (
     <section className="paywall-panel">
       <div>
-        <span className="eyebrow">Full report</span>
+        <span className="eyebrow">Deposit and report</span>
         <h3>Unlock the complete Cat Purrsonality profile.</h3>
         <p>
-          The paid report includes the primary and secondary type blend, all category scores, concern-based scenario
+          Pay the deposit to receive the primary and secondary type blend, all category scores, concern-based scenario
           outlooks, strengths, challenges, and care recommendations.
         </p>
       </div>
       <div className="price-card">
         <span>{settings.reportName}</span>
         <strong>{settings.reportPrice}</strong>
-        <small>{settings.paymentProvider}: {settings.appleProductId}</small>
+        <small>Choose Stripe card checkout or Apple In-App Purchase.</small>
       </div>
       <div className="paywall-actions">
         <button className="primary-button" type="button" onClick={onPurchase}>
-          Unlock with Apple
+          Pay with Apple
+        </button>
+        <button className="primary-button" type="button" onClick={openStripeCheckout}>
+          Pay deposit with Stripe
         </button>
         <button className="ghost-button" type="button" onClick={onRestore}>
-          Restore purchase
+          Restore Apple purchase
         </button>
       </div>
+      {notice && <p className="form-notice">{notice}</p>}
     </section>
   );
 }
@@ -1203,19 +1222,19 @@ function Results({ profile, results, onRetake }) {
 }
 
 function AdminPortal({ account, profile, answers, hasPremiumReport, adminContent, onSaveContent }) {
-  const [isAdmin, setIsAdmin] = useState(localStorage.getItem(ADMIN_SESSION_KEY) === 'true');
-  const [login, setLogin] = useState({ email: 'admin@catskittens.org', passcode: '' });
+  const [isAdmin, setIsAdmin] = useState(localStorage.getItem(ADMIN_SESSION_KEY) === ADMIN_EMAIL);
+  const [login, setLogin] = useState({ email: ADMIN_EMAIL, passcode: '' });
   const [notice, setNotice] = useState('');
   const answeredCount = Object.keys(answers).length;
 
   function submitAdminLogin(event) {
     event.preventDefault();
-    if (login.email.trim().toLowerCase() !== 'admin@catskittens.org' || login.passcode.trim() !== 'admin123') {
-      setNotice('Use admin@catskittens.org and passcode admin123 for this prototype.');
+    if (login.email.trim().toLowerCase() !== ADMIN_EMAIL || login.passcode.trim() !== ADMIN_PASSCODE) {
+      setNotice('That email or passcode is not authorized for admin access.');
       return;
     }
 
-    localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    localStorage.setItem(ADMIN_SESSION_KEY, ADMIN_EMAIL);
     setIsAdmin(true);
     setNotice('');
   }
@@ -1240,7 +1259,7 @@ function AdminPortal({ account, profile, answers, hasPremiumReport, adminContent
           <input
             value={login.passcode}
             onChange={(event) => setLogin((current) => ({ ...current, passcode: event.target.value }))}
-            placeholder="admin123"
+            placeholder="Enter admin passcode"
             type="password"
           />
         </label>
@@ -1364,6 +1383,10 @@ function AdminSettingsPanel({ adminContent, onSaveContent }) {
         <label>
           Stripe price ID
           <input value={settings.stripePriceId} onChange={(event) => update('stripePriceId', event.target.value)} placeholder="price_..." />
+        </label>
+        <label>
+          Stripe Payment Link
+          <input value={settings.stripePaymentLink} onChange={(event) => update('stripePaymentLink', event.target.value)} placeholder="https://buy.stripe.com/..." />
         </label>
         <label>
           Stripe mode
