@@ -7,6 +7,7 @@ const PURCHASE_STORAGE_KEY = 'purrsonality-premium-report-v1';
 const ACCOUNT_STORAGE_KEY = 'cat-purrsonality-account-v1';
 const ADMIN_CONTENT_KEY = 'cat-purrsonality-admin-content-v1';
 const ADMIN_SESSION_KEY = 'cat-purrsonality-admin-session-v1';
+const RECORDS_STORAGE_KEY = 'cat-purrsonality-records-v1';
 const APPLE_PRODUCT_ID = 'com.purrsonality.full_report';
 const ADMIN_EMAIL = 'kassab.team@icloud.com';
 const ADMIN_PASSCODE = 'catskittens-admin';
@@ -47,6 +48,27 @@ const defaultProfileFields = [
     options: ['Single adult', 'Adults only', 'Family with children', 'Multi-cat home', 'Multi-pet home'],
   },
 ];
+
+const defaultRecordSettings = {
+  tabLabels: {
+    photos: 'Photos',
+    documents: 'Documents',
+    receipts: 'Receipts',
+    calendar: 'Calendar',
+  },
+  documentLabels: [
+    'Registration paperwork',
+    'Litter paperwork',
+    'Deposit agreement',
+    'Contract agreement',
+    'Health records',
+    'Pedigree',
+  ],
+  documentFolders: ['Registrations', 'Litter paperwork', 'Agreements', 'Contracts', 'Health records'],
+  receiptFolders: ['Deposits', 'Food', 'Veterinary', 'Supplies', 'Grooming', 'Travel', 'Other expenses'],
+  receiptCategories: ['Income', 'Expense'],
+  calendarEventTypes: ['Vet visit', 'Breeding date', 'Due date', 'Pickup date', 'Payment due', 'Reminder'],
+};
 
 const questions = [
   {
@@ -590,6 +612,37 @@ function normalizeProfile(profile = {}) {
   };
 }
 
+function normalizeRecordSettings(settings = {}) {
+  return {
+    tabLabels: { ...defaultRecordSettings.tabLabels, ...(settings.tabLabels ?? {}) },
+    documentLabels: Array.isArray(settings.documentLabels) && settings.documentLabels.length
+      ? settings.documentLabels
+      : defaultRecordSettings.documentLabels,
+    documentFolders: Array.isArray(settings.documentFolders) && settings.documentFolders.length
+      ? settings.documentFolders
+      : defaultRecordSettings.documentFolders,
+    receiptFolders: Array.isArray(settings.receiptFolders) && settings.receiptFolders.length
+      ? settings.receiptFolders
+      : defaultRecordSettings.receiptFolders,
+    receiptCategories: Array.isArray(settings.receiptCategories) && settings.receiptCategories.length
+      ? settings.receiptCategories
+      : defaultRecordSettings.receiptCategories,
+    calendarEventTypes: Array.isArray(settings.calendarEventTypes) && settings.calendarEventTypes.length
+      ? settings.calendarEventTypes
+      : defaultRecordSettings.calendarEventTypes,
+  };
+}
+
+function normalizeRecords(records = {}) {
+  return {
+    profilePhoto: records.profilePhoto ?? '',
+    photos: Array.isArray(records.photos) ? records.photos : [],
+    documents: Array.isArray(records.documents) ? records.documents : [],
+    receipts: Array.isArray(records.receipts) ? records.receipts : [],
+    events: Array.isArray(records.events) ? records.events : [],
+  };
+}
+
 function normalizeQuestion(question = {}, index = 0) {
   return {
     prompt: question.prompt || questions[index]?.prompt || '',
@@ -626,6 +679,7 @@ function normalizeAdminContent(content = {}) {
     profileFields: Array.isArray(content.profileFields) && content.profileFields.length
       ? content.profileFields.map(normalizeProfileField)
       : defaultProfileFields,
+    recordSettings: normalizeRecordSettings(content.recordSettings),
     concernSuggestions: Array.isArray(content.concernSuggestions) && content.concernSuggestions.length
       ? content.concernSuggestions
       : concernSuggestions,
@@ -678,28 +732,53 @@ function loadAccount() {
   }
 }
 
+function loadRecords() {
+  try {
+    const saved = localStorage.getItem(RECORDS_STORAGE_KEY);
+    return normalizeRecords(saved ? JSON.parse(saved) : null);
+  } catch {
+    return normalizeRecords();
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function App() {
   const saved = useMemo(loadProgress, []);
   const savedAccount = useMemo(loadAccount, []);
   const savedAdminContent = useMemo(loadAdminContent, []);
+  const savedRecords = useMemo(loadRecords, []);
   const savedPurchase = useMemo(() => localStorage.getItem(PURCHASE_STORAGE_KEY) === 'true', []);
   const [view, setView] = useState(window.location.hash === '#admin' ? 'admin' : 'app');
   const [account, setAccount] = useState(savedAccount);
   const [adminContent, setAdminContent] = useState(savedAdminContent);
   const [profile, setProfile] = useState(normalizeProfile(saved?.profile));
   const [answers, setAnswers] = useState(saved?.answers ?? {});
+  const [records, setRecords] = useState(savedRecords);
   const [step, setStep] = useState(saved?.step ?? 0);
   const [profileNotice, setProfileNotice] = useState('');
   const [hasPremiumReport, setHasPremiumReport] = useState(savedPurchase);
   const activeQuestions = adminContent.questions;
   const activeConcernSuggestions = adminContent.concernSuggestions;
   const activeProfileFields = adminContent.profileFields;
+  const activeRecordSettings = adminContent.recordSettings;
   const activeSettings = adminContent.settings;
   const isAdminAccount = account?.email?.trim().toLowerCase() === ADMIN_EMAIL;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, answers, step }));
   }, [profile, answers, step]);
+
+  useEffect(() => {
+    localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(records));
+  }, [records]);
 
   useEffect(() => {
     function syncHashView() {
@@ -887,14 +966,17 @@ function App() {
         {view !== 'admin' && !account && <AuthCard onSubmit={saveAccount} />}
 
         {view !== 'admin' && account && step === 0 && !complete && (
-          <ProfileForm
-            profile={profile}
-            updateProfile={updateProfile}
-            notice={profileNotice}
-            onStart={startQuiz}
-            suggestions={activeConcernSuggestions}
-            profileFields={activeProfileFields}
-          />
+          <>
+            <ProfileForm
+              profile={profile}
+              updateProfile={updateProfile}
+              notice={profileNotice}
+              onStart={startQuiz}
+              suggestions={activeConcernSuggestions}
+              profileFields={activeProfileFields}
+            />
+            <CatRecords profile={profile} records={records} setRecords={setRecords} settings={activeRecordSettings} />
+          </>
         )}
 
         {view !== 'admin' && account && step > 0 && !complete && (
@@ -1297,6 +1379,7 @@ function AdminPortal({ account, profile, answers, hasPremiumReport, adminContent
       <AdminUsersPanel account={account} profile={profile} answeredCount={answeredCount} paid={hasPremiumReport} />
       <AdminSettingsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
       <AdminProfileFieldsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
+      <AdminRecordsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
       <AdminConcernsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
       <AdminQuestionsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
       <AdminNextSteps />
@@ -1519,6 +1602,69 @@ function AdminProfileFieldsPanel({ adminContent, onSaveContent }) {
   );
 }
 
+function AdminRecordsPanel({ adminContent, onSaveContent }) {
+  const [recordSettings, setRecordSettings] = useState(adminContent.recordSettings);
+
+  useEffect(() => {
+    setRecordSettings(adminContent.recordSettings);
+  }, [adminContent.recordSettings]);
+
+  function updateTab(key, value) {
+    setRecordSettings((current) => ({ ...current, tabLabels: { ...current.tabLabels, [key]: value } }));
+  }
+
+  function updateList(field, value) {
+    setRecordSettings((current) => ({
+      ...current,
+      [field]: value.split('\n').map((item) => item.trim()).filter(Boolean),
+    }));
+  }
+
+  function save() {
+    onSaveContent({ ...adminContent, recordSettings: normalizeRecordSettings(recordSettings) });
+  }
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <span className="eyebrow">Records tabs</span>
+          <h3>Control uploads, folders, receipts, and calendar options.</h3>
+        </div>
+        <button className="primary-button" type="button" onClick={save}>Save record settings</button>
+      </div>
+      <div className="admin-form-grid">
+        {Object.entries(recordSettings.tabLabels).map(([key, value]) => (
+          <label key={key}>
+            {key} tab name
+            <input value={value} onChange={(event) => updateTab(key, event.target.value)} />
+          </label>
+        ))}
+        <label>
+          Document labels, one per line
+          <textarea value={recordSettings.documentLabels.join('\n')} onChange={(event) => updateList('documentLabels', event.target.value)} />
+        </label>
+        <label>
+          Document folders, one per line
+          <textarea value={recordSettings.documentFolders.join('\n')} onChange={(event) => updateList('documentFolders', event.target.value)} />
+        </label>
+        <label>
+          Receipt folders, one per line
+          <textarea value={recordSettings.receiptFolders.join('\n')} onChange={(event) => updateList('receiptFolders', event.target.value)} />
+        </label>
+        <label>
+          Receipt categories, one per line
+          <textarea value={recordSettings.receiptCategories.join('\n')} onChange={(event) => updateList('receiptCategories', event.target.value)} />
+        </label>
+        <label>
+          Calendar event types, one per line
+          <textarea value={recordSettings.calendarEventTypes.join('\n')} onChange={(event) => updateList('calendarEventTypes', event.target.value)} />
+        </label>
+      </div>
+    </section>
+  );
+}
+
 function AdminConcernsPanel({ adminContent, onSaveContent }) {
   const [items, setItems] = useState(adminContent.concernSuggestions);
 
@@ -1670,6 +1816,212 @@ function Insight({ title, items, wide }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+function CatRecords({ profile, records, setRecords, settings }) {
+  const [activeTab, setActiveTab] = useState('photos');
+  const [documentForm, setDocumentForm] = useState({ label: settings.documentLabels[0], folder: settings.documentFolders[0] });
+  const [receiptForm, setReceiptForm] = useState({ category: 'Expense', folder: settings.receiptFolders[0], amount: '', description: '' });
+  const [eventForm, setEventForm] = useState({ title: '', type: settings.calendarEventTypes[0], date: '', notes: '' });
+  const totals = records.receipts.reduce((summary, receipt) => {
+    const amount = Number(receipt.amount) || 0;
+    return receipt.category === 'Income'
+      ? { ...summary, income: summary.income + amount }
+      : { ...summary, expenses: summary.expenses + amount };
+  }, { income: 0, expenses: 0 });
+  const profit = totals.income - totals.expenses;
+
+  function updateRecords(updater) {
+    setRecords((current) => normalizeRecords(typeof updater === 'function' ? updater(current) : updater));
+  }
+
+  async function uploadProfilePhoto(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const profilePhoto = await readFileAsDataUrl(file);
+    updateRecords((current) => ({ ...current, profilePhoto }));
+  }
+
+  async function uploadPhotos(event) {
+    const files = Array.from(event.target.files ?? []);
+    const uploads = await Promise.all(files.map(async (file) => ({
+      id: `${Date.now()}-${file.name}`,
+      name: file.name,
+      url: await readFileAsDataUrl(file),
+      createdAt: new Date().toISOString(),
+    })));
+    updateRecords((current) => ({ ...current, photos: [...current.photos, ...uploads] }));
+  }
+
+  async function uploadDocument(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const upload = {
+      id: `${Date.now()}-${file.name}`,
+      name: file.name,
+      url: await readFileAsDataUrl(file),
+      label: documentForm.label,
+      folder: documentForm.folder,
+      createdAt: new Date().toISOString(),
+    };
+    updateRecords((current) => ({ ...current, documents: [...current.documents, upload] }));
+    event.target.value = '';
+  }
+
+  async function uploadReceipt(event) {
+    const file = event.target.files?.[0];
+    if (!file || !receiptForm.amount) return;
+    const upload = {
+      id: `${Date.now()}-${file.name}`,
+      name: file.name,
+      url: await readFileAsDataUrl(file),
+      category: receiptForm.category,
+      folder: receiptForm.folder,
+      amount: receiptForm.amount,
+      description: receiptForm.description || file.name,
+      createdAt: new Date().toISOString(),
+    };
+    updateRecords((current) => ({ ...current, receipts: [...current.receipts, upload] }));
+    setReceiptForm((current) => ({ ...current, amount: '', description: '' }));
+    event.target.value = '';
+  }
+
+  function removeItem(collection, id) {
+    updateRecords((current) => ({ ...current, [collection]: current[collection].filter((item) => item.id !== id) }));
+  }
+
+  function addCalendarEvent(event) {
+    event.preventDefault();
+    if (!eventForm.title.trim() || !eventForm.date) return;
+    updateRecords((current) => ({
+      ...current,
+      events: [...current.events, { ...eventForm, id: `${Date.now()}-${eventForm.title}`, createdAt: new Date().toISOString() }],
+    }));
+    setEventForm({ title: '', type: settings.calendarEventTypes[0], date: '', notes: '' });
+  }
+
+  function googleCalendarUrl(item) {
+    const start = item.date.replaceAll('-', '');
+    const title = encodeURIComponent(`${item.type}: ${item.title}`);
+    const details = encodeURIComponent(item.notes || `Cat Purrsonality reminder for ${profile.name || 'cat'}`);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${start}&details=${details}`;
+  }
+
+  function appleCalendarFile(item) {
+    const start = item.date.replaceAll('-', '');
+    const title = encodeURIComponent(`${item.type}: ${item.title}`);
+    const details = encodeURIComponent(item.notes || `Cat Purrsonality reminder for ${profile.name || 'cat'}`);
+    return `data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART;VALUE=DATE:${start}%0ASUMMARY:${title}%0ADESCRIPTION:${details}%0AEND:VEVENT%0AEND:VCALENDAR`;
+  }
+
+  return (
+    <section className="records-panel">
+      <div className="records-heading">
+        <div>
+          <span className="eyebrow">Cat records</span>
+          <h3>{profile.name || 'Cat'} profile, files, receipts, and calendar</h3>
+        </div>
+        <button className="ghost-button" type="button" onClick={() => window.print()}>Print report</button>
+      </div>
+      <div className="profile-photo-row">
+        <div className="profile-photo-preview">
+          {records.profilePhoto ? <img src={records.profilePhoto} alt={`${profile.name || 'Cat'} profile`} /> : <span>Photo</span>}
+        </div>
+        <label>
+          Cat profile picture
+          <input accept="image/*" type="file" onChange={uploadProfilePhoto} />
+        </label>
+      </div>
+      <div className="record-tabs">
+        {Object.entries(settings.tabLabels).map(([key, label]) => (
+          <button className={activeTab === key ? 'active' : ''} type="button" key={key} onClick={() => setActiveTab(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === 'photos' && (
+        <div className="record-section">
+          <label>Upload cat photos<input accept="image/*" multiple type="file" onChange={uploadPhotos} /></label>
+          <div className="photo-grid">
+            {records.photos.map((photo) => (
+              <article className="photo-card" key={photo.id}>
+                <img src={photo.url} alt={photo.name} />
+                <span>{photo.name}</span>
+                <button className="ghost-button" type="button" onClick={() => removeItem('photos', photo.id)}>Remove</button>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+      {activeTab === 'documents' && (
+        <div className="record-section">
+          <div className="admin-form-grid">
+            <label>Document label<select value={documentForm.label} onChange={(event) => setDocumentForm((current) => ({ ...current, label: event.target.value }))}>{settings.documentLabels.map((label) => <option key={label}>{label}</option>)}</select></label>
+            <label>Folder<select value={documentForm.folder} onChange={(event) => setDocumentForm((current) => ({ ...current, folder: event.target.value }))}>{settings.documentFolders.map((folder) => <option key={folder}>{folder}</option>)}</select></label>
+          </div>
+          <label>Upload document<input accept="image/*,.pdf,.doc,.docx" type="file" onChange={uploadDocument} /></label>
+          <FileList items={records.documents} onRemove={(id) => removeItem('documents', id)} />
+        </div>
+      )}
+      {activeTab === 'receipts' && (
+        <div className="record-section">
+          <div className="profit-summary">
+            <Metric label="Income" value={`$${totals.income.toFixed(2)}`} />
+            <Metric label="Expenses" value={`$${totals.expenses.toFixed(2)}`} />
+            <Metric label="Profit / loss" value={`${profit < 0 ? '-' : ''}$${Math.abs(profit).toFixed(2)}`} />
+          </div>
+          <div className="admin-form-grid">
+            <label>Type<select value={receiptForm.category} onChange={(event) => setReceiptForm((current) => ({ ...current, category: event.target.value }))}>{settings.receiptCategories.map((category) => <option key={category}>{category}</option>)}</select></label>
+            <label>Folder<select value={receiptForm.folder} onChange={(event) => setReceiptForm((current) => ({ ...current, folder: event.target.value }))}>{settings.receiptFolders.map((folder) => <option key={folder}>{folder}</option>)}</select></label>
+            <label>Amount<input value={receiptForm.amount} onChange={(event) => setReceiptForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Example: 125.00" type="number" /></label>
+            <label>Description<input value={receiptForm.description} onChange={(event) => setReceiptForm((current) => ({ ...current, description: event.target.value }))} placeholder="Example: Deposit payment" /></label>
+          </div>
+          <label>Upload receipt<input accept="image/*,.pdf" type="file" onChange={uploadReceipt} /></label>
+          <FileList items={records.receipts} onRemove={(id) => removeItem('receipts', id)} showAmount />
+        </div>
+      )}
+      {activeTab === 'calendar' && (
+        <div className="record-section">
+          <form className="admin-form-grid" onSubmit={addCalendarEvent}>
+            <label>Event title<input value={eventForm.title} onChange={(event) => setEventForm((current) => ({ ...current, title: event.target.value }))} placeholder="Example: Vet appointment" /></label>
+            <label>Event type<select value={eventForm.type} onChange={(event) => setEventForm((current) => ({ ...current, type: event.target.value }))}>{settings.calendarEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+            <label>Date<input value={eventForm.date} onChange={(event) => setEventForm((current) => ({ ...current, date: event.target.value }))} type="date" /></label>
+            <label>Notes<input value={eventForm.notes} onChange={(event) => setEventForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional notes" /></label>
+            <button className="primary-button wide" type="submit">Add calendar item</button>
+          </form>
+          <div className="file-list">
+            {records.events.map((item) => (
+              <article className="file-row" key={item.id}>
+                <div><strong>{item.title}</strong><span>{item.type} · {item.date}</span></div>
+                <a className="ghost-link" href={googleCalendarUrl(item)} target="_blank" rel="noreferrer">Google Calendar</a>
+                <a className="ghost-link" href={appleCalendarFile(item)} download={`${item.title}.ics`}>Apple Calendar</a>
+                <button className="ghost-button" type="button" onClick={() => removeItem('events', item.id)}>Remove</button>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FileList({ items, onRemove, showAmount }) {
+  if (!items.length) return <p className="muted-text">No files uploaded yet.</p>;
+
+  return (
+    <div className="file-list">
+      {items.map((item) => (
+        <article className="file-row" key={item.id}>
+          <div>
+            <strong>{item.label || item.description || item.name}</strong>
+            <span>{item.folder}{showAmount ? ` · ${item.category} · $${Number(item.amount || 0).toFixed(2)}` : ''}</span>
+          </div>
+          <a className="ghost-link" href={item.url} download={item.name}>Open</a>
+          <button className="ghost-button" type="button" onClick={() => onRemove(item.id)}>Remove</button>
+        </article>
+      ))}
+    </div>
   );
 }
 
