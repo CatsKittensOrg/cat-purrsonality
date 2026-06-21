@@ -5,6 +5,8 @@ import './styles.css';
 const STORAGE_KEY = 'purrsonality-progress-v1';
 const PURCHASE_STORAGE_KEY = 'purrsonality-premium-report-v1';
 const ACCOUNT_STORAGE_KEY = 'cat-purrsonality-account-v1';
+const ADMIN_CONTENT_KEY = 'cat-purrsonality-admin-content-v1';
+const ADMIN_SESSION_KEY = 'cat-purrsonality-admin-session-v1';
 const APPLE_PRODUCT_ID = 'com.purrsonality.full_report';
 
 const categories = [
@@ -18,6 +20,30 @@ const categories = [
   'Independence',
   'Dominance',
   'Anxiety',
+];
+
+const defaultProfileFields = [
+  { id: 'name', label: 'Cat name', type: 'text', placeholder: 'Example: Miso', required: true },
+  { id: 'ticaRegistration', label: 'TICA registration number', type: 'text', placeholder: 'Example: SBT 012345 678', required: false },
+  { id: 'age', label: 'Age', type: 'text', placeholder: 'Example: 4 years', required: true },
+  { id: 'breed', label: 'Breed', type: 'text', placeholder: 'Example: Domestic shorthair', required: true },
+  { id: 'sex', label: 'Sex', type: 'select', placeholder: 'Choose', required: true, options: ['Female', 'Male', 'Unknown'] },
+  {
+    id: 'lifestyle',
+    label: 'Indoor / outdoor',
+    type: 'select',
+    placeholder: 'Choose',
+    required: true,
+    options: ['Indoor only', 'Indoor with supervised outdoor time', 'Indoor / outdoor', 'Outdoor mostly'],
+  },
+  {
+    id: 'household',
+    label: 'Household type',
+    type: 'select',
+    placeholder: 'Choose',
+    required: true,
+    options: ['Single adult', 'Adults only', 'Family with children', 'Multi-cat home', 'Multi-pet home'],
+  },
 ];
 
 const questions = [
@@ -418,6 +444,7 @@ const traitProfiles = [
 
 const emptyProfile = {
   name: '',
+  ticaRegistration: '',
   age: '',
   breed: '',
   sex: '',
@@ -464,6 +491,20 @@ const concernSuggestions = [
   'I want to match this cat with the right home',
   'I want to understand breeder temperament traits',
 ];
+
+const defaultAdminSettings = {
+  reportName: 'Full Cat Report',
+  reportPrice: '$9.99',
+  paymentProvider: 'Apple prototype',
+  appleProductId: APPLE_PRODUCT_ID,
+  stripeMode: 'Not connected yet',
+  stripePublishableKey: '',
+  stripePriceId: '',
+  successUrl: 'https://cat-purrsonality.vercel.app',
+  cancelUrl: 'https://cat-purrsonality.vercel.app',
+  requireLogin: true,
+  requirePayment: true,
+};
 
 const scenarioResponses = {
   clawmander: {
@@ -546,6 +587,60 @@ function normalizeProfile(profile = {}) {
   };
 }
 
+function normalizeQuestion(question = {}, index = 0) {
+  return {
+    prompt: question.prompt || questions[index]?.prompt || '',
+    category: categories.includes(question.category) ? question.category : questions[index]?.category || categories[0],
+    answers: [...(question.answers ?? questions[index]?.answers ?? []), '', '', '', ''].slice(0, 4),
+  };
+}
+
+function makeFieldId(label) {
+  const base = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+  return base || `customField${Date.now()}`;
+}
+
+function normalizeProfileField(field = {}, index = 0) {
+  const fallback = defaultProfileFields[index] ?? {};
+  const label = field.label || fallback.label || 'Custom field';
+  return {
+    id: field.id || fallback.id || makeFieldId(label),
+    label,
+    type: field.type === 'select' ? 'select' : 'text',
+    placeholder: field.placeholder ?? fallback.placeholder ?? '',
+    required: Boolean(field.required ?? fallback.required),
+    options: Array.isArray(field.options) && field.options.length ? field.options : fallback.options ?? [],
+  };
+}
+
+function normalizeAdminContent(content = {}) {
+  return {
+    settings: { ...defaultAdminSettings, ...(content.settings ?? {}) },
+    profileFields: Array.isArray(content.profileFields) && content.profileFields.length
+      ? content.profileFields.map(normalizeProfileField)
+      : defaultProfileFields,
+    concernSuggestions: Array.isArray(content.concernSuggestions) && content.concernSuggestions.length
+      ? content.concernSuggestions
+      : concernSuggestions,
+    questions: Array.isArray(content.questions) && content.questions.length
+      ? content.questions.map(normalizeQuestion)
+      : questions,
+  };
+}
+
+function loadAdminContent() {
+  try {
+    const saved = localStorage.getItem(ADMIN_CONTENT_KEY);
+    return normalizeAdminContent(saved ? JSON.parse(saved) : null);
+  } catch {
+    return normalizeAdminContent();
+  }
+}
+
 function buildScenarioOutlooks(concerns, personality) {
   return concerns
     .map((concern) => concern.trim())
@@ -583,29 +678,45 @@ function loadAccount() {
 function App() {
   const saved = useMemo(loadProgress, []);
   const savedAccount = useMemo(loadAccount, []);
+  const savedAdminContent = useMemo(loadAdminContent, []);
   const savedPurchase = useMemo(() => localStorage.getItem(PURCHASE_STORAGE_KEY) === 'true', []);
+  const [view, setView] = useState(window.location.hash === '#admin' ? 'admin' : 'app');
   const [account, setAccount] = useState(savedAccount);
+  const [adminContent, setAdminContent] = useState(savedAdminContent);
   const [profile, setProfile] = useState(normalizeProfile(saved?.profile));
   const [answers, setAnswers] = useState(saved?.answers ?? {});
   const [step, setStep] = useState(saved?.step ?? 0);
   const [profileNotice, setProfileNotice] = useState('');
   const [hasPremiumReport, setHasPremiumReport] = useState(savedPurchase);
+  const activeQuestions = adminContent.questions;
+  const activeConcernSuggestions = adminContent.concernSuggestions;
+  const activeProfileFields = adminContent.profileFields;
+  const activeSettings = adminContent.settings;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, answers, step }));
   }, [profile, answers, step]);
 
+  useEffect(() => {
+    function syncHashView() {
+      setView(window.location.hash === '#admin' ? 'admin' : 'app');
+    }
+
+    window.addEventListener('hashchange', syncHashView);
+    return () => window.removeEventListener('hashchange', syncHashView);
+  }, []);
+
   const answeredCount = Object.keys(answers).length;
-  const complete = answeredCount === questions.length;
+  const complete = answeredCount === activeQuestions.length;
   const catName = profile.name.trim() || 'Your cat';
-  const question = questions[step - 1];
-  const progress = Math.round((answeredCount / questions.length) * 100);
+  const question = activeQuestions[step - 1];
+  const progress = Math.round((answeredCount / activeQuestions.length) * 100);
 
   const results = useMemo(() => {
     const raw = blankScores();
     const possible = blankScores();
 
-    questions.forEach((item, index) => {
+    activeQuestions.forEach((item, index) => {
       possible[item.category] += 4;
       if (answers[index]) raw[item.category] += answers[index];
     });
@@ -615,7 +726,7 @@ function App() {
     );
     const personality = buildDiscStyleResult(scores);
     return { scores, personality };
-  }, [answers]);
+  }, [answers, activeQuestions]);
 
   function updateProfile(field, value) {
     setProfileNotice('');
@@ -628,7 +739,7 @@ function App() {
 
   function resetQuiz() {
     localStorage.removeItem(STORAGE_KEY);
-    setProfile(emptyProfile);
+    setProfile(normalizeProfile());
     setAnswers({});
     setStep(0);
     setProfileNotice('');
@@ -641,6 +752,22 @@ function App() {
 
   function signOut() {
     setAccount(null);
+  }
+
+  function openAdmin() {
+    window.location.hash = 'admin';
+    setView('admin');
+  }
+
+  function openApp() {
+    window.location.hash = '';
+    setView('app');
+  }
+
+  function saveAdminContent(nextContent) {
+    const normalized = normalizeAdminContent(nextContent);
+    localStorage.setItem(ADMIN_CONTENT_KEY, JSON.stringify(normalized));
+    setAdminContent(normalized);
   }
 
   async function unlockPremiumReport() {
@@ -663,18 +790,13 @@ function App() {
     setHasPremiumReport(true);
   }
 
-  const missingProfileFields = [
-    ['name', 'cat name'],
-    ['age', 'age'],
-    ['breed', 'breed'],
-    ['sex', 'sex'],
-    ['lifestyle', 'indoor/outdoor'],
-    ['household', 'household type'],
-  ].filter(([field]) => !String(profile[field] ?? '').trim());
+  const missingProfileFields = activeProfileFields
+    .filter((field) => field.required && !String(profile[field.id] ?? '').trim())
+    .map((field) => field.label);
 
   function startQuiz() {
     if (missingProfileFields.length) {
-      setProfileNotice(`Please add: ${missingProfileFields.map(([, label]) => label).join(', ')}.`);
+      setProfileNotice(`Please add: ${missingProfileFields.join(', ')}.`);
       return;
     }
 
@@ -713,51 +835,80 @@ function App() {
         <div className="topbar">
           <div>
             <span className="eyebrow">
-              {!account ? 'Account' : complete ? 'Results ready' : step === 0 ? 'Cat profile' : `Question ${step} of ${questions.length}`}
+              {view === 'admin' ? 'Admin' : !account ? 'Account' : complete ? 'Results ready' : step === 0 ? 'Cat profile' : `Question ${step} of ${activeQuestions.length}`}
             </span>
-            <h2>{!account ? 'Sign up or log in' : complete ? `${catName}'s Cat Purrsonality Map` : step === 0 ? 'Start with the essentials' : question.prompt}</h2>
+            <h2>{view === 'admin' ? 'Cat Purrsonality Control Room' : !account ? 'Sign up or log in' : complete ? `${catName}'s Cat Purrsonality Map` : step === 0 ? 'Start with the essentials' : question.prompt}</h2>
           </div>
-          {account ? (
-            <div className="account-actions">
-              <span>{account.email}</span>
-              <button className="ghost-button" type="button" onClick={signOut}>
-                Sign out
+          <div className="account-actions">
+            {account ? <span>{account.email}</span> : null}
+            {view === 'admin' ? (
+              <button className="ghost-button" type="button" onClick={openApp}>
+                Back to app
               </button>
-              <button className="ghost-button" type="button" onClick={resetQuiz}>
-                Reset
+            ) : (
+              <button className="ghost-button" type="button" onClick={openAdmin}>
+                Admin
               </button>
-            </div>
-          ) : null}
+            )}
+            {account && view !== 'admin' ? (
+              <>
+                <button className="ghost-button" type="button" onClick={signOut}>
+                  Sign out
+                </button>
+                <button className="ghost-button" type="button" onClick={resetQuiz}>
+                  Reset
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
 
-        {account && (
+        {view === 'admin' ? (
+          <AdminPortal
+            account={account}
+            profile={profile}
+            answers={answers}
+            hasPremiumReport={hasPremiumReport}
+            adminContent={adminContent}
+            onSaveContent={saveAdminContent}
+          />
+        ) : null}
+
+        {view !== 'admin' && account && (
           <div className="progress-track" aria-label="Quiz progress">
             <span style={{ width: `${progress}%` }} />
           </div>
         )}
 
-        {!account && <AuthCard onSubmit={saveAccount} />}
+        {view !== 'admin' && !account && <AuthCard onSubmit={saveAccount} />}
 
-        {account && step === 0 && !complete && (
-          <ProfileForm profile={profile} updateProfile={updateProfile} notice={profileNotice} onStart={startQuiz} />
+        {view !== 'admin' && account && step === 0 && !complete && (
+          <ProfileForm
+            profile={profile}
+            updateProfile={updateProfile}
+            notice={profileNotice}
+            onStart={startQuiz}
+            suggestions={activeConcernSuggestions}
+            profileFields={activeProfileFields}
+          />
         )}
 
-        {account && step > 0 && !complete && (
+        {view !== 'admin' && account && step > 0 && !complete && (
           <QuestionCard
             question={question}
             selected={answers[step - 1]}
             onSelect={selectAnswer}
             onBack={() => setStep((current) => Math.max(0, current - 1))}
-            onNext={() => setStep((current) => Math.min(questions.length, current + 1))}
-            isLast={step === questions.length}
+            onNext={() => setStep((current) => Math.min(activeQuestions.length, current + 1))}
+            isLast={step === activeQuestions.length}
           />
         )}
 
-        {account && complete && !hasPremiumReport && (
-          <Paywall onPurchase={unlockPremiumReport} onRestore={restorePremiumReport} />
+        {view !== 'admin' && account && complete && activeSettings.requirePayment && !hasPremiumReport && (
+          <Paywall onPurchase={unlockPremiumReport} onRestore={restorePremiumReport} settings={activeSettings} />
         )}
 
-        {account && complete && hasPremiumReport && <Results profile={profile} results={results} onRetake={resetQuiz} />}
+        {view !== 'admin' && account && complete && (!activeSettings.requirePayment || hasPremiumReport) && <Results profile={profile} results={results} onRetake={resetQuiz} />}
       </section>
       <figure className="page-cat-strip">
         <img src="/assets/cat-family-cropped.png" alt="A lineup of Cats & Kittens organization cats" />
@@ -826,7 +977,7 @@ function AuthCard({ onSubmit }) {
   );
 }
 
-function Paywall({ onPurchase, onRestore }) {
+function Paywall({ onPurchase, onRestore, settings }) {
   return (
     <section className="paywall-panel">
       <div>
@@ -838,9 +989,9 @@ function Paywall({ onPurchase, onRestore }) {
         </p>
       </div>
       <div className="price-card">
-        <span>Full Cat Report</span>
-        <strong>$9.99</strong>
-        <small>Apple In-App Purchase product: {APPLE_PRODUCT_ID}</small>
+        <span>{settings.reportName}</span>
+        <strong>{settings.reportPrice}</strong>
+        <small>{settings.paymentProvider}: {settings.appleProductId}</small>
       </div>
       <div className="paywall-actions">
         <button className="primary-button" type="button" onClick={onPurchase}>
@@ -854,7 +1005,7 @@ function Paywall({ onPurchase, onRestore }) {
   );
 }
 
-function ProfileForm({ profile, updateProfile, notice, onStart }) {
+function ProfileForm({ profile, updateProfile, notice, onStart, suggestions, profileFields }) {
   const selectedConcerns = profile.concerns.map((concern) => concern.trim()).filter(Boolean);
 
   function updateConcern(index, value) {
@@ -872,48 +1023,23 @@ function ProfileForm({ profile, updateProfile, notice, onStart }) {
 
   return (
     <div className="profile-grid">
-      <label>
-        Cat name
-        <input value={profile.name} onChange={(event) => updateProfile('name', event.target.value)} placeholder="Example: Miso" />
-      </label>
-      <label>
-        Age
-        <input value={profile.age} onChange={(event) => updateProfile('age', event.target.value)} placeholder="Example: 4 years" />
-      </label>
-      <label>
-        Breed
-        <input value={profile.breed} onChange={(event) => updateProfile('breed', event.target.value)} placeholder="Example: Domestic shorthair" />
-      </label>
-      <label>
-        Sex
-        <select value={profile.sex} onChange={(event) => updateProfile('sex', event.target.value)}>
-          <option value="">Choose</option>
-          <option>Female</option>
-          <option>Male</option>
-          <option>Unknown</option>
-        </select>
-      </label>
-      <label>
-        Indoor / outdoor
-        <select value={profile.lifestyle} onChange={(event) => updateProfile('lifestyle', event.target.value)}>
-          <option value="">Choose</option>
-          <option>Indoor only</option>
-          <option>Indoor with supervised outdoor time</option>
-          <option>Indoor / outdoor</option>
-          <option>Outdoor mostly</option>
-        </select>
-      </label>
-      <label>
-        Household type
-        <select value={profile.household} onChange={(event) => updateProfile('household', event.target.value)}>
-          <option value="">Choose</option>
-          <option>Single adult</option>
-          <option>Adults only</option>
-          <option>Family with children</option>
-          <option>Multi-cat home</option>
-          <option>Multi-pet home</option>
-        </select>
-      </label>
+      {profileFields.map((field) => (
+        <label key={field.id}>
+          {field.label}{field.required ? ' *' : ''}
+          {field.type === 'select' ? (
+            <select value={profile[field.id] ?? ''} onChange={(event) => updateProfile(field.id, event.target.value)}>
+              <option value="">{field.placeholder || 'Choose'}</option>
+              {field.options.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          ) : (
+            <input
+              value={profile[field.id] ?? ''}
+              onChange={(event) => updateProfile(field.id, event.target.value)}
+              placeholder={field.placeholder}
+            />
+          )}
+        </label>
+      ))}
       <div className="concerns-fieldset wide">
         <div>
           <span className="eyebrow">Owner concerns</span>
@@ -925,7 +1051,7 @@ function ProfileForm({ profile, updateProfile, notice, onStart }) {
             <strong>{selectedConcerns.length}/3 selected</strong>
           </summary>
           <div className="concern-options">
-            {concernSuggestions.map((suggestion) => {
+            {suggestions.map((suggestion) => {
               const checked = selectedConcerns.includes(suggestion);
               const disabled = !checked && selectedConcerns.length >= 3;
 
@@ -1011,6 +1137,7 @@ function Results({ profile, results, onRetake }) {
         <div className="mini-profile">
           <span>{profile.sex}</span>
           <span>{profile.household}</span>
+          {profile.ticaRegistration ? <span>TICA {profile.ticaRegistration}</span> : null}
         </div>
       </aside>
 
@@ -1072,6 +1199,441 @@ function Results({ profile, results, onRetake }) {
         Start a fresh profile
       </button>
     </div>
+  );
+}
+
+function AdminPortal({ account, profile, answers, hasPremiumReport, adminContent, onSaveContent }) {
+  const [isAdmin, setIsAdmin] = useState(localStorage.getItem(ADMIN_SESSION_KEY) === 'true');
+  const [login, setLogin] = useState({ email: 'admin@catskittens.org', passcode: '' });
+  const [notice, setNotice] = useState('');
+  const answeredCount = Object.keys(answers).length;
+
+  function submitAdminLogin(event) {
+    event.preventDefault();
+    if (login.email.trim().toLowerCase() !== 'admin@catskittens.org' || login.passcode.trim() !== 'admin123') {
+      setNotice('Use admin@catskittens.org and passcode admin123 for this prototype.');
+      return;
+    }
+
+    localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    setIsAdmin(true);
+    setNotice('');
+  }
+
+  function signOutAdmin() {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    setIsAdmin(false);
+  }
+
+  if (!isAdmin) {
+    return (
+      <form className="auth-card admin-login" onSubmit={submitAdminLogin}>
+        <span className="eyebrow">Owner access</span>
+        <h3>Log in to manage the app.</h3>
+        <p>This is the starter admin login. We will replace it with real secure admin accounts when we connect Supabase.</p>
+        <label>
+          Admin email
+          <input value={login.email} onChange={(event) => setLogin((current) => ({ ...current, email: event.target.value }))} />
+        </label>
+        <label>
+          Passcode
+          <input
+            value={login.passcode}
+            onChange={(event) => setLogin((current) => ({ ...current, passcode: event.target.value }))}
+            placeholder="admin123"
+            type="password"
+          />
+        </label>
+        {notice && <p className="form-notice">{notice}</p>}
+        <button className="primary-button" type="submit">
+          Open admin
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <div className="admin-dashboard">
+      <section className="admin-status">
+        <div>
+          <span className="eyebrow">Live controls</span>
+          <h3>Manage users, content, features, and payments.</h3>
+          <p>
+            These controls work in this browser now. For changes to update for every visitor, the next step is connecting
+            Supabase for the database and Stripe for real checkout.
+          </p>
+        </div>
+        <button className="ghost-button" type="button" onClick={signOutAdmin}>
+          Admin sign out
+        </button>
+      </section>
+
+      <div className="admin-metrics">
+        <Metric label="Prototype users" value={account ? '1' : '0'} />
+        <Metric label="Questions" value={adminContent.questions.length} />
+        <Metric label="Concerns" value={adminContent.concernSuggestions.length} />
+        <Metric label="Payment" value={adminContent.settings.requirePayment ? 'On' : 'Off'} />
+      </div>
+
+      <AdminUsersPanel account={account} profile={profile} answeredCount={answeredCount} paid={hasPremiumReport} />
+      <AdminSettingsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
+      <AdminProfileFieldsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
+      <AdminConcernsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
+      <AdminQuestionsPanel adminContent={adminContent} onSaveContent={onSaveContent} />
+      <AdminNextSteps />
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <article className="metric-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+function AdminUsersPanel({ account, profile, answeredCount, paid }) {
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <span className="eyebrow">Users</span>
+          <h3>Current prototype account</h3>
+        </div>
+      </div>
+      {account ? (
+        <div className="admin-table">
+          <div><strong>Name</strong><span>{account.name}</span></div>
+          <div><strong>Email</strong><span>{account.email}</span></div>
+          <div><strong>Cat</strong><span>{profile.name || 'Not started'}</span></div>
+          <div><strong>Quiz answers</strong><span>{answeredCount}</span></div>
+          <div><strong>Report</strong><span>{paid ? 'Unlocked' : 'Not purchased'}</span></div>
+        </div>
+      ) : (
+        <p className="muted-text">No one is logged in on this browser right now.</p>
+      )}
+    </section>
+  );
+}
+
+function AdminSettingsPanel({ adminContent, onSaveContent }) {
+  const [settings, setSettings] = useState(adminContent.settings);
+
+  useEffect(() => {
+    setSettings(adminContent.settings);
+  }, [adminContent.settings]);
+
+  function update(field, value) {
+    setSettings((current) => ({ ...current, [field]: value }));
+  }
+
+  function save() {
+    onSaveContent({ ...adminContent, settings });
+  }
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <span className="eyebrow">Payments and features</span>
+          <h3>Control the paid report setup.</h3>
+        </div>
+        <button className="primary-button" type="button" onClick={save}>
+          Save settings
+        </button>
+      </div>
+      <div className="admin-form-grid">
+        <label>
+          Report name
+          <input value={settings.reportName} onChange={(event) => update('reportName', event.target.value)} />
+        </label>
+        <label>
+          Price shown
+          <input value={settings.reportPrice} onChange={(event) => update('reportPrice', event.target.value)} />
+        </label>
+        <label>
+          Apple product ID
+          <input value={settings.appleProductId} onChange={(event) => update('appleProductId', event.target.value)} />
+        </label>
+        <label>
+          Stripe publishable key
+          <input value={settings.stripePublishableKey} onChange={(event) => update('stripePublishableKey', event.target.value)} placeholder="pk_live_..." />
+        </label>
+        <label>
+          Stripe price ID
+          <input value={settings.stripePriceId} onChange={(event) => update('stripePriceId', event.target.value)} placeholder="price_..." />
+        </label>
+        <label>
+          Stripe mode
+          <select value={settings.stripeMode} onChange={(event) => update('stripeMode', event.target.value)}>
+            <option>Not connected yet</option>
+            <option>Test mode</option>
+            <option>Live mode</option>
+          </select>
+        </label>
+        <label className="toggle-row">
+          <input type="checkbox" checked={settings.requireLogin} onChange={(event) => update('requireLogin', event.target.checked)} />
+          Require login before quiz
+        </label>
+        <label className="toggle-row">
+          <input type="checkbox" checked={settings.requirePayment} onChange={(event) => update('requirePayment', event.target.checked)} />
+          Require payment before full report
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function AdminProfileFieldsPanel({ adminContent, onSaveContent }) {
+  const [items, setItems] = useState(adminContent.profileFields);
+
+  useEffect(() => {
+    setItems(adminContent.profileFields);
+  }, [adminContent.profileFields]);
+
+  function updateField(index, field, value) {
+    setItems((current) => current.map((item, itemIndex) => {
+      if (itemIndex !== index) return item;
+      const next = { ...item, [field]: value };
+      if (field === 'label' && !defaultProfileFields.some((defaultField) => defaultField.id === item.id)) {
+        next.id = makeFieldId(value);
+      }
+      return next;
+    }));
+  }
+
+  function updateOptions(index, value) {
+    const options = value.split('\n').map((option) => option.trim()).filter(Boolean);
+    updateField(index, 'options', options);
+  }
+
+  function addField() {
+    setItems((current) => [
+      ...current,
+      {
+        id: `customField${Date.now()}`,
+        label: 'New cat profile field',
+        type: 'text',
+        placeholder: 'Example: Add helpful placeholder text',
+        required: false,
+        options: [],
+      },
+    ]);
+  }
+
+  function removeField(index) {
+    setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function moveField(index, direction) {
+    setItems((current) => {
+      const next = [...current];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function save() {
+    onSaveContent({ ...adminContent, profileFields: items.map(normalizeProfileField) });
+  }
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <span className="eyebrow">Start form</span>
+          <h3>Add or rearrange cat profile fields.</h3>
+        </div>
+        <div className="admin-actions">
+          <button className="ghost-button" type="button" onClick={addField}>Add field</button>
+          <button className="primary-button" type="button" onClick={save}>Save form fields</button>
+        </div>
+      </div>
+      <div className="question-editor-list">
+        {items.map((item, index) => (
+          <article className="question-editor" key={`${item.id}-${index}`}>
+            <div className="question-editor-top">
+              <strong>Field {index + 1}</strong>
+              <div className="admin-actions">
+                <button className="ghost-button" type="button" onClick={() => moveField(index, -1)}>Up</button>
+                <button className="ghost-button" type="button" onClick={() => moveField(index, 1)}>Down</button>
+                <button className="ghost-button" type="button" onClick={() => removeField(index)}>Remove</button>
+              </div>
+            </div>
+            <label>
+              Field label
+              <input value={item.label} onChange={(event) => updateField(index, 'label', event.target.value)} />
+            </label>
+            <label>
+              Placeholder
+              <input value={item.placeholder} onChange={(event) => updateField(index, 'placeholder', event.target.value)} />
+            </label>
+            <label>
+              Field type
+              <select value={item.type} onChange={(event) => updateField(index, 'type', event.target.value)}>
+                <option value="text">Text</option>
+                <option value="select">Dropdown</option>
+              </select>
+            </label>
+            <label className="toggle-row">
+              <input type="checkbox" checked={item.required} onChange={(event) => updateField(index, 'required', event.target.checked)} />
+              Required before quiz
+            </label>
+            {item.type === 'select' && (
+              <label>
+                Dropdown options, one per line
+                <textarea value={item.options.join('\n')} onChange={(event) => updateOptions(index, event.target.value)} />
+              </label>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminConcernsPanel({ adminContent, onSaveContent }) {
+  const [items, setItems] = useState(adminContent.concernSuggestions);
+
+  useEffect(() => {
+    setItems(adminContent.concernSuggestions);
+  }, [adminContent.concernSuggestions]);
+
+  function updateItem(index, value) {
+    setItems((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  function addItem() {
+    setItems((current) => [...current, 'New owner concern']);
+  }
+
+  function removeItem(index) {
+    setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function save() {
+    onSaveContent({ ...adminContent, concernSuggestions: items.map((item) => item.trim()).filter(Boolean) });
+  }
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <span className="eyebrow">Concern list</span>
+          <h3>Edit the multi-select concern menu.</h3>
+        </div>
+        <div className="admin-actions">
+          <button className="ghost-button" type="button" onClick={addItem}>Add concern</button>
+          <button className="primary-button" type="button" onClick={save}>Save concerns</button>
+        </div>
+      </div>
+      <div className="admin-list-editor">
+        {items.map((item, index) => (
+          <div className="admin-edit-row" key={`${item}-${index}`}>
+            <input value={item} onChange={(event) => updateItem(index, event.target.value)} />
+            <button className="ghost-button" type="button" onClick={() => removeItem(index)}>Remove</button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminQuestionsPanel({ adminContent, onSaveContent }) {
+  const [items, setItems] = useState(adminContent.questions);
+
+  useEffect(() => {
+    setItems(adminContent.questions);
+  }, [adminContent.questions]);
+
+  function updateQuestion(index, field, value) {
+    setItems((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+  }
+
+  function updateAnswer(questionIndex, answerIndex, value) {
+    setItems((current) => current.map((item, itemIndex) => {
+      if (itemIndex !== questionIndex) return item;
+      const answers = item.answers.map((answer, index) => (index === answerIndex ? value : answer));
+      return { ...item, answers };
+    }));
+  }
+
+  function addQuestion() {
+    setItems((current) => [
+      ...current,
+      {
+        prompt: 'New scenario question',
+        category: categories[0],
+        answers: ['Lowest intensity answer', 'Low-medium answer', 'Medium-high answer', 'Highest intensity answer'],
+      },
+    ]);
+  }
+
+  function removeQuestion(index) {
+    setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function save() {
+    onSaveContent({ ...adminContent, questions: items.map(normalizeQuestion) });
+  }
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <span className="eyebrow">Quiz scenarios</span>
+          <h3>Add or adjust scoring questions.</h3>
+        </div>
+        <div className="admin-actions">
+          <button className="ghost-button" type="button" onClick={addQuestion}>Add question</button>
+          <button className="primary-button" type="button" onClick={save}>Save questions</button>
+        </div>
+      </div>
+      <div className="question-editor-list">
+        {items.map((item, questionIndex) => (
+          <article className="question-editor" key={`${item.prompt}-${questionIndex}`}>
+            <div className="question-editor-top">
+              <strong>Question {questionIndex + 1}</strong>
+              <button className="ghost-button" type="button" onClick={() => removeQuestion(questionIndex)}>Remove</button>
+            </div>
+            <label>
+              Scenario
+              <textarea value={item.prompt} onChange={(event) => updateQuestion(questionIndex, 'prompt', event.target.value)} />
+            </label>
+            <label>
+              Scoring category
+              <select value={item.category} onChange={(event) => updateQuestion(questionIndex, 'category', event.target.value)}>
+                {categories.map((category) => <option key={category}>{category}</option>)}
+              </select>
+            </label>
+            {item.answers.map((answer, answerIndex) => (
+              <label key={answerIndex}>
+                Answer {answerIndex + 1} score
+                <input value={answer} onChange={(event) => updateAnswer(questionIndex, answerIndex, event.target.value)} />
+              </label>
+            ))}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminNextSteps() {
+  return (
+    <section className="admin-panel">
+      <span className="eyebrow">Next connection</span>
+      <h3>What this needs before real customers pay.</h3>
+      <ul>
+        <li>Supabase database for real users, saved cat profiles, admin-only access, and shared content updates.</li>
+        <li>Stripe checkout account keys and a secure payment endpoint so card payments are real.</li>
+        <li>A private admin role so only Cats & Kittens Organization can manage app content.</li>
+      </ul>
+    </section>
   );
 }
 
