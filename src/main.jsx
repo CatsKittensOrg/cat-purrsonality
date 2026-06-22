@@ -12,6 +12,27 @@ const APPLE_PRODUCT_ID = 'com.purrsonality.full_report';
 const ADMIN_EMAIL = 'kassab.team@icloud.com';
 const ADMIN_PASSCODE = 'catskittens-admin';
 
+const brandOptions = {
+  cat: {
+    key: 'cat',
+    name: 'Purrsonality',
+    label: 'Cat Purrsonality',
+    animal: 'cat',
+    animalPlural: 'cats',
+    headline: 'Decode and predict your cat’s behavior.',
+    description: 'For cats, kittens, breeders, adopters, and owners who want temperament plus records in one place.',
+  },
+  dog: {
+    key: 'dog',
+    name: 'Barksonality',
+    label: 'Dog Barksonality',
+    animal: 'dog',
+    animalPlural: 'dogs',
+    headline: 'Decode and predict your dog’s behavior.',
+    description: 'For dogs, puppies, breeders, adopters, and owners who want temperament plus records in one place.',
+  },
+};
+
 const categories = [
   'Confidence',
   'Sociability with Humans',
@@ -469,6 +490,7 @@ const traitProfiles = [
 ];
 
 const emptyProfile = {
+  petType: 'cat',
   name: '',
   ownerPhone: '',
   ownerAddress: '',
@@ -762,6 +784,7 @@ function App() {
   const savedPurchase = useMemo(() => localStorage.getItem(PURCHASE_STORAGE_KEY) === 'true', []);
   const [view, setView] = useState(window.location.hash === '#admin' ? 'admin' : 'app');
   const [account, setAccount] = useState(savedAccount);
+  const [selectedBrand, setSelectedBrand] = useState(savedAccount?.brand ?? saved?.profile?.petType ?? 'cat');
   const [adminContent, setAdminContent] = useState(savedAdminContent);
   const [profile, setProfile] = useState(normalizeProfile(saved?.profile));
   const [answers, setAnswers] = useState(saved?.answers ?? {});
@@ -775,6 +798,7 @@ function App() {
   const activeRecordSettings = adminContent.recordSettings;
   const activeSettings = adminContent.settings;
   const isAdminAccount = account?.email?.trim().toLowerCase() === ADMIN_EMAIL;
+  const activeBrand = brandOptions[account?.brand ?? selectedBrand] ?? brandOptions.cat;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, answers, step }));
@@ -833,8 +857,15 @@ function App() {
   }
 
   function saveAccount(nextAccount) {
-    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(nextAccount));
-    setAccount(nextAccount);
+    const accountWithBrand = { ...nextAccount, brand: selectedBrand };
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(accountWithBrand));
+    setAccount(accountWithBrand);
+    setProfile((current) => ({ ...current, petType: selectedBrand }));
+  }
+
+  function chooseBrand(brand) {
+    setSelectedBrand(brand);
+    setProfile((current) => ({ ...current, petType: brand }));
   }
 
   function signOut() {
@@ -903,17 +934,15 @@ function App() {
           </div>
         </div>
         <div className="hero-copy">
-          <h1>Cat Purrsonality</h1>
-          <strong>Decode and predict your cat&apos;s behavior.</strong>
+          <h1>Pawsonality</h1>
+          <strong>{account ? activeBrand.headline : 'Choose Purrsonality for cats or Barksonality for dogs.'}</strong>
           <p>
-            A DISC-inspired cat temperament quiz that maps ten behavioral signals into five feline personality types:
+            A DISC-inspired temperament and records app for cats and dogs, with branded paths for each companion:
           </p>
           <ul className="hero-type-list">
-            <li><b>The Clawmander</b> <span>(confident, dominant, energetic)</span></li>
-            <li><b>The Whisker Watcher</b> <span>(observant, cautious, independent)</span></li>
-            <li><b>The Purrfect Pal</b> <span>(affectionate, social, people-oriented)</span></li>
-            <li><b>The Catventurer</b> <span>(curious, adaptable, playful)</span></li>
-            <li><b>The Meowdiator</b> <span>(animal-social, balanced, harmony-seeking)</span></li>
+            <li><b>Purrsonality</b> <span>(cat temperament, documents, receipts, records)</span></li>
+            <li><b>Barksonality</b> <span>(dog temperament, documents, receipts, records)</span></li>
+            <li><b>Pawsonality Profiles</b> <span>(one umbrella for pet behavior and client records)</span></li>
           </ul>
         </div>
       </section>
@@ -924,7 +953,7 @@ function App() {
             <span className="eyebrow">
               {view === 'admin' ? 'Admin' : !account ? 'Account' : complete ? 'Results ready' : step === 0 ? 'Cat profile' : `Question ${step} of ${activeQuestions.length}`}
             </span>
-            <h2>{view === 'admin' ? 'Cat Purrsonality Control Room' : !account ? 'Sign up or log in' : complete ? `${catName}'s Cat Purrsonality Map` : step === 0 ? 'Start with the essentials' : question.prompt}</h2>
+            <h2>{view === 'admin' ? 'Pawsonality Control Room' : !account ? 'Choose your portal' : complete ? `${catName}'s ${activeBrand.name} Map` : step === 0 ? `Start ${activeBrand.name}` : question.prompt}</h2>
           </div>
           <div className="account-actions">
             {account ? <span>{account.email}</span> : null}
@@ -967,7 +996,9 @@ function App() {
           </div>
         )}
 
-        {view !== 'admin' && !account && <AuthCard onSubmit={saveAccount} />}
+        {view !== 'admin' && !account && (
+          <AuthCard selectedBrand={selectedBrand} onBrandChange={chooseBrand} onSubmit={saveAccount} />
+        )}
 
         {view !== 'admin' && account && step === 0 && !complete && (
           <>
@@ -979,7 +1010,7 @@ function App() {
               suggestions={activeConcernSuggestions}
               profileFields={activeProfileFields}
             />
-            <CatRecords profile={profile} records={records} setRecords={setRecords} settings={activeRecordSettings} />
+            <CatRecords profile={profile} records={records} setRecords={setRecords} settings={activeRecordSettings} brand={activeBrand} />
           </>
         )}
 
@@ -995,7 +1026,7 @@ function App() {
         )}
 
         {view !== 'admin' && account && complete && activeSettings.requirePayment && !hasPremiumReport && (
-          <Paywall onPurchase={unlockPremiumReport} onRestore={restorePremiumReport} settings={activeSettings} />
+          <Paywall onPurchase={unlockPremiumReport} onRestore={restorePremiumReport} settings={activeSettings} brand={activeBrand} />
         )}
 
         {view !== 'admin' && account && complete && (!activeSettings.requirePayment || hasPremiumReport) && <Results profile={profile} results={results} onRetake={resetQuiz} />}
@@ -1007,10 +1038,11 @@ function App() {
   );
 }
 
-function AuthCard({ onSubmit }) {
+function AuthCard({ selectedBrand, onBrandChange, onSubmit }) {
   const [mode, setMode] = useState('signup');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [notice, setNotice] = useState('');
+  const activeBrand = brandOptions[selectedBrand] ?? brandOptions.cat;
 
   function updateField(field, value) {
     setNotice('');
@@ -1033,6 +1065,19 @@ function AuthCard({ onSubmit }) {
 
   return (
     <form className="auth-card" onSubmit={submitAuth}>
+      <div className="brand-choice-grid">
+        {Object.values(brandOptions).map((brand) => (
+          <button
+            className={selectedBrand === brand.key ? 'brand-choice active' : 'brand-choice'}
+            type="button"
+            key={brand.key}
+            onClick={() => onBrandChange(brand.key)}
+          >
+            <strong>{brand.label}</strong>
+            <span>{brand.description}</span>
+          </button>
+        ))}
+      </div>
       <div className="auth-tabs">
         <button className={mode === 'signup' ? 'active' : ''} type="button" onClick={() => setMode('signup')}>
           Sign up
@@ -1042,7 +1087,7 @@ function AuthCard({ onSubmit }) {
         </button>
       </div>
       <p>
-        Create an account before starting the quiz so cat profiles, paid reports, and future App Store purchases have a
+        Create an account for {activeBrand.name} so {activeBrand.animal} profiles, paid reports, and future App Store purchases have a
         place to live.
       </p>
       {mode === 'signup' && (
@@ -1067,7 +1112,7 @@ function AuthCard({ onSubmit }) {
   );
 }
 
-function Paywall({ onPurchase, onRestore, settings }) {
+function Paywall({ onPurchase, onRestore, settings, brand }) {
   const [notice, setNotice] = useState('');
 
   function openStripeCheckout() {
@@ -1083,7 +1128,7 @@ function Paywall({ onPurchase, onRestore, settings }) {
     <section className="paywall-panel">
       <div>
         <span className="eyebrow">Deposit and report</span>
-        <h3>Unlock the complete Cat Purrsonality profile.</h3>
+        <h3>Unlock the complete {brand.name} profile.</h3>
         <p>
           Pay the deposit to receive the primary and secondary type blend, all category scores, concern-based scenario
           outlooks, strengths, challenges, and care recommendations.
@@ -1823,7 +1868,7 @@ function Insight({ title, items, wide }) {
   );
 }
 
-function CatRecords({ profile, records, setRecords, settings }) {
+function CatRecords({ profile, records, setRecords, settings, brand }) {
   const [activeTab, setActiveTab] = useState('photos');
   const [documentForm, setDocumentForm] = useState({ label: settings.documentLabels[0], folder: settings.documentFolders[0] });
   const [receiptForm, setReceiptForm] = useState({ category: 'Expense', folder: settings.receiptFolders[0], amount: '', description: '' });
@@ -1908,14 +1953,14 @@ function CatRecords({ profile, records, setRecords, settings }) {
   function googleCalendarUrl(item) {
     const start = item.date.replaceAll('-', '');
     const title = encodeURIComponent(`${item.type}: ${item.title}`);
-    const details = encodeURIComponent(item.notes || `Cat Purrsonality reminder for ${profile.name || 'cat'}`);
+    const details = encodeURIComponent(item.notes || `${brand.name} reminder for ${profile.name || brand.animal}`);
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${start}&details=${details}`;
   }
 
   function appleCalendarFile(item) {
     const start = item.date.replaceAll('-', '');
     const title = encodeURIComponent(`${item.type}: ${item.title}`);
-    const details = encodeURIComponent(item.notes || `Cat Purrsonality reminder for ${profile.name || 'cat'}`);
+    const details = encodeURIComponent(item.notes || `${brand.name} reminder for ${profile.name || brand.animal}`);
     return `data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART;VALUE=DATE:${start}%0ASUMMARY:${title}%0ADESCRIPTION:${details}%0AEND:VEVENT%0AEND:VCALENDAR`;
   }
 
@@ -1923,17 +1968,17 @@ function CatRecords({ profile, records, setRecords, settings }) {
     <section className="records-panel">
       <div className="records-heading">
         <div>
-          <span className="eyebrow">Cat records</span>
-          <h3>{profile.name || 'Cat'} profile, files, receipts, and calendar</h3>
+          <span className="eyebrow">{brand.name} records</span>
+          <h3>{profile.name || brand.animal} profile, files, receipts, and calendar</h3>
         </div>
         <button className="ghost-button" type="button" onClick={() => window.print()}>Print report</button>
       </div>
       <div className="profile-photo-row">
         <div className="profile-photo-preview">
-          {records.profilePhoto ? <img src={records.profilePhoto} alt={`${profile.name || 'Cat'} profile`} /> : <span>Photo</span>}
+          {records.profilePhoto ? <img src={records.profilePhoto} alt={`${profile.name || brand.animal} profile`} /> : <span>Photo</span>}
         </div>
         <label>
-          Cat profile picture
+          {brand.animal} profile picture
           <input accept="image/*" type="file" onChange={uploadProfilePhoto} />
         </label>
       </div>
@@ -1946,7 +1991,7 @@ function CatRecords({ profile, records, setRecords, settings }) {
       </div>
       {activeTab === 'photos' && (
         <div className="record-section">
-          <label>Upload cat photos<input accept="image/*" multiple type="file" onChange={uploadPhotos} /></label>
+          <label>Upload {brand.animal} photos<input accept="image/*" multiple type="file" onChange={uploadPhotos} /></label>
           <div className="photo-grid">
             {records.photos.map((photo) => (
               <article className="photo-card" key={photo.id}>

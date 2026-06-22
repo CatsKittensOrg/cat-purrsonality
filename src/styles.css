@@ -283,7 +283,7 @@ h2 {
 .auth-card {
   display: grid;
   gap: 1rem;
-  max-width: 34rem;
+  max-width: 48rem;
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
@@ -314,6 +314,41 @@ h2 {
   background: #ffffff;
   color: #17304d;
   box-shadow: 0 0.45rem 1.2rem rgba(9, 27, 47, 0.08);
+}
+
+.brand-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.brand-choice {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 8.4rem;
+  border: 1px solid rgba(39, 78, 115, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e3145;
+  padding: 1rem;
+  text-align: left;
+}
+
+.brand-choice strong {
+  color: #17304d;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+}
+
+.brand-choice span {
+  color: #51677d;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.brand-choice.active {
+  border-color: #315f8c;
+  background: #edf3f8;
+  box-shadow: 0 0.8rem 1.6rem rgba(9, 27, 47, 0.08);
 }
 
 label {
@@ -1141,6 +1176,7 @@ li::marker {
   .scenario-list,
   .admin-metrics,
   .admin-form-grid,
+  .brand-choice-grid,
   .record-tabs,
   .photo-grid,
   .profit-summary {
