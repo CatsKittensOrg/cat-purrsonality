@@ -1,18 +1,18 @@
-# Cat Purrsonality Apple App Store Payment Plan
+# Petsonality Apple App Store Payment Plan
 
 ## Recommended first paid product
 
 - Product type: Non-consumable in-app purchase
-- Product ID: `com.purrsonality.full_report`
-- Display name: `Full Cat Report`
+- Product ID: `com.petsonality.full_report`
+- Display name: `Full Petsonality Report`
 - Suggested price: `$9.99`
-- Unlocks: Full Cat Purrsonality report, category scores, primary/secondary type, owner concern scenario outlooks, strengths, challenges, and recommendations.
+- Unlocks: Full Petsonality report, category scores, primary/secondary type, owner concern scenario outlooks, strengths, challenges, and recommendations.
 
 ## Apple Developer setup
 
 1. Enroll in the Apple Developer Program.
-2. Create an app in App Store Connect named `Cat Purrsonality`.
-3. Add an in-app purchase with product ID `com.purrsonality.full_report`.
+2. Create an app in App Store Connect named `Petsonality`.
+3. Add an in-app purchase with product ID `com.petsonality.full_report`.
 4. Add screenshots, privacy policy URL, support URL, app description, keywords, and age rating.
 5. In Xcode, enable In-App Purchase capability.
 6. Connect the React app to StoreKit through a native iOS wrapper.

@@ -1,4 +1,4 @@
-# Cat Purrsonality Deployment Guide
+# Petsonality Deployment Guide
 
 ## My recommendation
 
@@ -8,13 +8,13 @@ Vercel and Netlify are two separate hosting companies. You only need one account
 
 ## Suggested public URL
 
-Use a subdomain:
+Use your main app domain:
 
 ```text
-purrsonality.catskittens.org
+petsonality.app
 ```
 
-This keeps the main Cats & Kittens website separate from the quiz app.
+You can also point `purrsonality.app` to the same project later as a cat-focused doorway.
 
 ## Vercel settings
 
@@ -33,15 +33,15 @@ After deployment:
 
 1. Open the Vercel project.
 2. Go to Settings > Domains.
-3. Add `purrsonality.catskittens.org`.
+3. Add `petsonality.app`.
 4. Vercel will show the DNS record to add wherever the domain is managed.
 
 Most likely DNS record:
 
 ```text
-Type: CNAME
-Name: purrsonality
-Value: cname.vercel-dns.com
+Type: A
+Name: @
+Value: 76.76.21.21
 ```
 
 Use the exact value Vercel shows.
@@ -61,7 +61,7 @@ After deployment:
 
 1. Open the Netlify site.
 2. Go to Domain management.
-3. Add `purrsonality.catskittens.org`.
+3. Add `petsonality.app`.
 4. Netlify will show the DNS record to add wherever the domain is managed.
 
 ## Important limitation right now

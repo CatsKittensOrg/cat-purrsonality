@@ -8,7 +8,7 @@ const ACCOUNT_STORAGE_KEY = 'cat-purrsonality-account-v1';
 const ADMIN_CONTENT_KEY = 'cat-purrsonality-admin-content-v1';
 const ADMIN_SESSION_KEY = 'cat-purrsonality-admin-session-v1';
 const RECORDS_STORAGE_KEY = 'cat-purrsonality-records-v1';
-const APPLE_PRODUCT_ID = 'com.purrsonality.full_report';
+const APPLE_PRODUCT_ID = 'com.petsonality.full_report';
 const ADMIN_EMAIL = 'kassab.team@icloud.com';
 const ADMIN_PASSCODE = 'catskittens-admin';
 
@@ -33,8 +33,8 @@ const brandOptions = {
   },
   mixed: {
     key: 'mixed',
-    name: 'Pawsonality',
-    label: 'Pawsonality',
+    name: 'Petsonality',
+    label: 'Petsonality',
     animal: 'pet',
     animalPlural: 'pets',
     headline: 'Decode and organize your cats and dogs together.',
@@ -552,7 +552,7 @@ const concernSuggestions = [
 ];
 
 const defaultAdminSettings = {
-  reportName: 'Cat Purrsonality Deposit',
+  reportName: 'Petsonality Deposit',
   reportPrice: '$25.00',
   paymentProvider: 'Stripe or Apple',
   appleProductId: APPLE_PRODUCT_ID,
@@ -935,15 +935,15 @@ function App() {
     <main className="app-shell">
       <section className="hero-panel">
         <div className="brand-lockup">
-          <img src="/assets/paw-purr-bark-logo-transparent-silver.png" alt="PAW Purr & Bark logo" />
+          <img src="/assets/paw-purr-bark-logo-transparent.png" alt="Petsonality Purr & Bark logo" />
           <div>
-            <p>PAW</p>
+            <p>Petsonality</p>
             <p className="brand-subline">Purr & Bark</p>
             <small>Official Temperament Quiz</small>
           </div>
         </div>
         <div className="hero-copy">
-          <h1>Pawsonality</h1>
+          <h1>Petsonality</h1>
           <strong>{account ? activeBrand.headline : 'For pet owners, breeders, rescue associations, and pet registries.'}</strong>
           <p>
             Store all your animal information in one place: appointment calendar, photos, registrations, breeder documents,
@@ -952,7 +952,7 @@ function App() {
           <ul className="hero-type-list">
             <li><b>Purrsonality</b> <span>(cat temperament, documents, receipts, records)</span></li>
             <li><b>Barksonality</b> <span>(dog temperament, documents, receipts, records)</span></li>
-            <li><b>Pawsonality Profiles</b> <span>(one umbrella for pet behavior and client records)</span></li>
+            <li><b>Petsonality Profiles</b> <span>(one umbrella for pet behavior and client records)</span></li>
           </ul>
         </div>
       </section>
@@ -963,7 +963,7 @@ function App() {
             <span className="eyebrow">
               {view === 'admin' ? 'Admin' : !account ? 'Account' : complete ? 'Results ready' : step === 0 ? 'Cat profile' : `Question ${step} of ${activeQuestions.length}`}
             </span>
-            <h2>{view === 'admin' ? 'Pawsonality Control Room' : !account ? 'Sign up or log in' : complete ? `${catName}'s ${activeBrand.name} Map` : step === 0 ? `Start ${activeBrand.name}` : question.prompt}</h2>
+            <h2>{view === 'admin' ? 'Petsonality Control Room' : !account ? 'Sign up or log in' : complete ? `${catName}'s ${activeBrand.name} Map` : step === 0 ? `Start ${activeBrand.name}` : question.prompt}</h2>
           </div>
           <div className="account-actions">
             {account ? <span>{account.email}</span> : null}
@@ -1042,7 +1042,7 @@ function App() {
         {view !== 'admin' && account && complete && (!activeSettings.requirePayment || hasPremiumReport) && <Results profile={profile} results={results} onRetake={resetQuiz} />}
       </section>
       <figure className="page-cat-strip">
-        <img src="/assets/cat-family-cropped.png" alt="A lineup of PAW Purr & Bark pets" />
+        <img src="/assets/cat-family-cropped.png" alt="A lineup of Petsonality pets" />
       </figure>
     </main>
   );
@@ -1859,7 +1859,7 @@ function AdminNextSteps() {
       <ul>
         <li>Supabase database for real users, saved cat profiles, admin-only access, and shared content updates.</li>
         <li>Stripe checkout account keys and a secure payment endpoint so card payments are real.</li>
-        <li>A private admin role so only PAW Purr & Bark can manage app content.</li>
+        <li>A private admin role so only Petsonality can manage app content.</li>
       </ul>
     </section>
   );
