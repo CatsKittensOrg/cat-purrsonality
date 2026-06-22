@@ -935,7 +935,7 @@ function App() {
     <main className="app-shell">
       <section className="hero-panel">
         <div className="brand-lockup">
-          <img src="/assets/cats-kittens-logo.jpg" alt="PAW Purr & Bark logo" />
+          <img src="/assets/paw-purr-bark-logo-transparent-silver.png" alt="PAW Purr & Bark logo" />
           <div>
             <p>PAW</p>
             <p className="brand-subline">Purr & Bark</p>
@@ -944,9 +944,10 @@ function App() {
         </div>
         <div className="hero-copy">
           <h1>Pawsonality</h1>
-          <strong>{account ? activeBrand.headline : 'For pet owners, rescue associations, and pet registries.'}</strong>
+          <strong>{account ? activeBrand.headline : 'For pet owners, breeders, rescue associations, and pet registries.'}</strong>
           <p>
-            A DISC-inspired temperament and records app for cats and dogs, with branded paths for each companion:
+            Store all your animal information in one place: appointment calendar, photos, registrations, breeder documents,
+            pet expenses, and receipts.
           </p>
           <ul className="hero-type-list">
             <li><b>Purrsonality</b> <span>(cat temperament, documents, receipts, records)</span></li>
