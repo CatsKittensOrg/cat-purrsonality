@@ -27,6 +27,8 @@ const categories = [
 
 const defaultProfileFields = [
   { id: 'name', label: 'Cat name', type: 'text', placeholder: 'Example: Miso', required: true },
+  { id: 'ownerPhone', label: 'Owner phone number', type: 'text', placeholder: 'Example: (555) 123-4567', required: false },
+  { id: 'ownerAddress', label: 'Owner address', type: 'text', placeholder: 'Example: 123 Main St, City, State', required: false },
   { id: 'ticaRegistration', label: 'TICA registration number', type: 'text', placeholder: 'Example: SBT 012345 678', required: false },
   { id: 'age', label: 'Age', type: 'text', placeholder: 'Example: 4 years', required: true },
   { id: 'breed', label: 'Breed', type: 'text', placeholder: 'Example: Domestic shorthair', required: true },
@@ -468,6 +470,8 @@ const traitProfiles = [
 
 const emptyProfile = {
   name: '',
+  ownerPhone: '',
+  ownerAddress: '',
   ticaRegistration: '',
   age: '',
   breed: '',
