@@ -16,7 +16,7 @@ const brandOptions = {
   cat: {
     key: 'cat',
     name: 'Purrsonality',
-    label: 'Cat Purrsonality',
+    label: 'Purrsonality',
     animal: 'cat',
     animalPlural: 'cats',
     headline: 'Decode and predict your cat’s behavior.',
@@ -25,11 +25,20 @@ const brandOptions = {
   dog: {
     key: 'dog',
     name: 'Barksonality',
-    label: 'Dog Barksonality',
+    label: 'Barksonality',
     animal: 'dog',
     animalPlural: 'dogs',
     headline: 'Decode and predict your dog’s behavior.',
     description: 'For dogs, puppies, breeders, adopters, and owners who want temperament plus records in one place.',
+  },
+  mixed: {
+    key: 'mixed',
+    name: 'Pawsonality',
+    label: 'Pawsonality',
+    animal: 'pet',
+    animalPlural: 'pets',
+    headline: 'Decode and organize your cats and dogs together.',
+    description: 'For pet owners, rescue associations, and pet registries managing temperament, records, receipts, and care timelines together.',
   },
 };
 
@@ -926,16 +935,16 @@ function App() {
     <main className="app-shell">
       <section className="hero-panel">
         <div className="brand-lockup">
-          <img src="/assets/cats-kittens-logo.jpg" alt="Cats & Kittens Organization logo" />
+          <img src="/assets/cats-kittens-logo.jpg" alt="PAW Purr & Bark logo" />
           <div>
-            <p>Cats & Kittens</p>
-            <p className="brand-subline">Organization</p>
+            <p>PAW</p>
+            <p className="brand-subline">Purr & Bark</p>
             <small>Official Temperament Quiz</small>
           </div>
         </div>
         <div className="hero-copy">
           <h1>Pawsonality</h1>
-          <strong>{account ? activeBrand.headline : 'Choose Purrsonality for cats or Barksonality for dogs.'}</strong>
+          <strong>{account ? activeBrand.headline : 'For pet owners, rescue associations, and pet registries.'}</strong>
           <p>
             A DISC-inspired temperament and records app for cats and dogs, with branded paths for each companion:
           </p>
@@ -953,7 +962,7 @@ function App() {
             <span className="eyebrow">
               {view === 'admin' ? 'Admin' : !account ? 'Account' : complete ? 'Results ready' : step === 0 ? 'Cat profile' : `Question ${step} of ${activeQuestions.length}`}
             </span>
-            <h2>{view === 'admin' ? 'Pawsonality Control Room' : !account ? 'Choose your portal' : complete ? `${catName}'s ${activeBrand.name} Map` : step === 0 ? `Start ${activeBrand.name}` : question.prompt}</h2>
+            <h2>{view === 'admin' ? 'Pawsonality Control Room' : !account ? 'Sign up or log in' : complete ? `${catName}'s ${activeBrand.name} Map` : step === 0 ? `Start ${activeBrand.name}` : question.prompt}</h2>
           </div>
           <div className="account-actions">
             {account ? <span>{account.email}</span> : null}
@@ -1032,7 +1041,7 @@ function App() {
         {view !== 'admin' && account && complete && (!activeSettings.requirePayment || hasPremiumReport) && <Results profile={profile} results={results} onRetake={resetQuiz} />}
       </section>
       <figure className="page-cat-strip">
-        <img src="/assets/cat-family-cropped.png" alt="A lineup of Cats & Kittens organization cats" />
+        <img src="/assets/cat-family-cropped.png" alt="A lineup of PAW Purr & Bark pets" />
       </figure>
     </main>
   );
@@ -1849,7 +1858,7 @@ function AdminNextSteps() {
       <ul>
         <li>Supabase database for real users, saved cat profiles, admin-only access, and shared content updates.</li>
         <li>Stripe checkout account keys and a secure payment endpoint so card payments are real.</li>
-        <li>A private admin role so only Cats & Kittens Organization can manage app content.</li>
+        <li>A private admin role so only PAW Purr & Bark can manage app content.</li>
       </ul>
     </section>
   );
