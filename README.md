@@ -1,2 +1,2 @@
-# cat-purrsonality
-Cat Purrsonality quiz app
+# petsonality
+Petsonality assessment APP
