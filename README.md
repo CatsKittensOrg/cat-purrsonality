@@ -1,2 +1,2 @@
 # petsonality
-Petsonality assessment APP
+Petsonality Assessment APP
